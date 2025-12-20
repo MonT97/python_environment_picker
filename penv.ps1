@@ -1,6 +1,15 @@
+[CmdLetBinding(DefaultParameterSetName = 'default')]
 param(
-	[string]$script:envName
-)
+	[Parameter(ParameterSetName ='default', Position=0)]
+	[string]$envName,
+	[parameter(ParameterSetName = 'config', Mandatory)]
+	[switch]$config,
+	[parameter(ParameterSetName = 'config')]
+	[string]$path
+	)
+
+#? Any function has a [cfg_] prefex
+."$PSScriptRoot\config.ps1"
 
 function script:Main {
 	Initiate_Variables
@@ -19,7 +28,7 @@ function script:Main {
 function script:Initiate_Variables {
 	[string]$local:configFileName = ".penv_config.json"
 	[string]$local:configFilePath = $(Join-Path $psHome $local:configFileName)
-	Look_For_Config_File -path $local:configFilePath
+	cfg_Look_For_Config_File -path $local:configFilePath
 	[string]$script:workingDir = Get-Location
 	[string]$script:defaultPath = $(Get-Content $local:configFilePath -Raw |ConvertFrom-Json).default_path
 	[string]$script:newEnvironmentPath = Join-Path $script:defaultPath $script:envName
@@ -31,37 +40,6 @@ function script:Initiate_Variables {
 		)
 	}
 	
-function script:Look_For_Config_File {
-	param(
-		[Parameter(Mandatory)]
-		[string]$path
-	)
-	[bool]$private:configNotFound = !(Test-Path $local:path)
-	if ($private:configNotFound) {
-		# TODO: check user input!
-		Write-Host "`n !> No default envronments path is provided."
-		$private:environmentPath = Read-Host " !> Provide The evnironments path:`n >"
-		Create_Config_File -envsPath $private:environmentPath -path $local:path	
-	}
-}
-
-function script:Create_Config_File {
-	param(
-		[string]$envsPath,
-		[string]$path
-		)
-		New-Item -ItemType File $path | Out-Null
-		$local:config = ConvertTo-Json @{
-			default_path = $envsPath
-		}
-		# TODO: Check for match pre and post JSONing
-		$local:config > $path
-		$local:configFromFile = Get-Content $local:path | ConvertFrom-Json
-		Write-Host ">>> $local:configFromFile"
-		Write-Host " !> Created config file at [$path]."
-		Write-Host " !> New default path is [$($local:configFromFile.default_path)].`n"
-}
-
 function script:Parse_Greet {
 	param(
 		[string]$path
@@ -82,8 +60,8 @@ function script:Parse_Greet {
 
  > The specified path is:
    [$path]
- > To change the specified path call with the one you want:
-   penv [EXAMPLE/PATH/etc] # TDOD
+ > To change the specified:
+   penv -config -path [example/path]
 
 |==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|"
 	return $greet
@@ -353,4 +331,13 @@ function script:Handle_Selection {
 	}
 }
 
-Main
+	switch ($PSCmdlet.ParameterSetName) {
+		('default') {
+			Main
+		}
+		('config') {
+			Write-Host " >> Entered config mode."
+			cfg_Config -path $script:path
+			Main
+		}
+}
