@@ -1,7 +1,9 @@
 function script:cfg_Config {
 	param(
+		[Parameter(Mandatory)]
 		[string]$path
 	)
+	Write-Host " >> Entered config mode."
 	if ([bool]$local:path){
 		if ((Test-Path $local:path) -and (($local:path) -match ('.*/.*|.*\.*'))) {
 				Write-Host " >> Valid path [$local:path]"
@@ -35,7 +37,9 @@ function script:cfg_Look_For_Config_File {
 
 function script:cfg_Create_Config_File {
 	param(
+		[parameter(Mandatory)]
 		[string]$envsPath,
+		[parameter(Mandatory)]
 		[string]$path
 		)
 		New-Item -ItemType File $path | Out-Null

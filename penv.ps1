@@ -42,6 +42,7 @@ function script:Initiate_Variables {
 	
 function script:Parse_Greet {
 	param(
+		[parameter(Mandatory)]
 		[string]$path
 	)
 	[string]$private:greet =  "
@@ -290,6 +291,7 @@ function script:Pick_Environment {
 
 function script:Handle_Selection {
 	param(
+		[parameter(Mandatory)]
 		[string]$env
 	)
 	[string]$private:pickFlag = Read-Host "`n > Selectd [$private:env]
@@ -331,13 +333,12 @@ function script:Handle_Selection {
 	}
 }
 
-	switch ($PSCmdlet.ParameterSetName) {
-		('default') {
-			Main
-		}
-		('config') {
-			Write-Host " >> Entered config mode."
-			cfg_Config -path $script:path
-			Main
-		}
+switch ($PSCmdlet.ParameterSetName) {
+	('default') {
+		Main
+	}
+	('config') {
+		cfg_Config -path $script:path
+		Main
+	}
 }
