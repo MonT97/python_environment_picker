@@ -1,13 +1,15 @@
 param(
-	[string]$script:envName,
-	[bool]$script:newSession = $true
+	[string]$script:envName
 )
 
 function script:Main {
 	Initiate_Variables
 	[string]$private:greet = Parse_Greet -path $script:defaultPath
 	Write-Output $private:greet
-	if ($script:isEnvironmentNew) {
+	if ($script:isEnvironmentProvided) {
+		Pick_Environment -envName $script:envName
+	}
+	elseif ($script:isEnvironmentNew) {
 		Create_New_Environment -envName $script:envName -newEnvPath $script:newEnvironmentPath 
 	} else {
 		Pick_Environment
@@ -22,7 +24,10 @@ function script:Initiate_Variables {
 	[string]$script:defaultPath = $(Get-Content $local:configFilePath -Raw |ConvertFrom-Json).default_path
 	[string]$script:newEnvironmentPath = Join-Path $script:defaultPath $script:envName
 	[bool]$script:isEnvironmentNew = (
-		!(Test-Path $script:newEnvironmentPath) -and ($script:envName)
+		!(Test-Path $script:newEnvironmentPath) -and ([bool]$script:envName)
+		)
+	[bool]$script:isEnvironmentProvided = (
+		(Test-Path $script:newEnvironmentPath) -and ([bool]$script:envName)
 		)
 	}
 	
@@ -96,7 +101,8 @@ function script:Create_New_Environment {
 		[parameter(Mandatory)]
 		[string]$envName,
 		[parameter(Mandatory)]
-		[string]$newEnvPath
+		[string]$newEnvPath,
+		[bool]$isEnvNew
 	)
 	$private:pickFlag = Read-Host " > Create new [$envName] at [$newEnvPath]??
    [y|q(uit)]`n >"
@@ -114,11 +120,10 @@ function script:Create_New_Environment {
 			}
 			[bool]$private:envCreated = $(test-path $newEnvPath)
 			Write-Output " > environment [$envName] created [$envCreated]`n"
-			if ($script:newSession) {
+			if ($local:isEnvNew) {
 				New-Item -ItemType directory $(Join-Path $newEnvPath "projs") | Out-Null
-				Handle_Session -path $newEnvPath
+				Pick_Environment
 			}
-			Set-Location $newEnvPath
 		}
 		('^q$') {
 			Quit
@@ -138,61 +143,6 @@ function script:Activate_Environment {
 	Set-Location $(Join-Path $path "Scripts")
 	./activate
 	Set-Location $(Join-Path $path "projs")
-}
-
-function script:Handle_Session {
-	param(
-		[parameter(Mandatory)]
-		[string]$path
-	)
-	Write-Host $path
-	$private:pickFlag = Read-Host " >:
- > Lunch in:
- >> VsCode -------- [v]
- >> Jupyter-lab --- [j]
- > Activate environment -- [o]
- > Quit ------------------ [q]`n >"
-	$pickFlag = $pickFlag.ToLower()
-
-	Activate_Environment -path $path
-
-	function local:Create_Shell_Instance {
-		Write-Output " > Lunching Jupyter-lab ..."
-		[string]$private:snippet = "
-		Set-Location Join-Path $path `"Scripts`"
-		./activate
-		Set-Location Join-Path $path `"projs`""
-		start-process powershell -ArgumentList ("-noexit", "-c &{$snippet}")
-	}
-
-	switch -Regex ($pickFlag) {
-		('^o$') {
-			Set-Location $pwd
-		}
-		('^q$') {
-			deactivate
-			Quit
-		}
-		('^v$') {
-			code .
-			break
-		}
-		('^j$') {
-			[string]$private:packagePath = Join-Path $path "lib" "site-packages"
-			[bool]$private:noJupyter = !('jupyter' -in $(Get-ChildItem $packagePath))
-			if ($noJupyter) {
-				Write-Output " > Jupyter isn't installed.`n
- > Installing Jupyter-lab ....`n"
-				pip install jupyterlab --quiet
-			}
-			Create_Shell_Instance
-			jupyter-lab
-		}
-		default {
-			Write-Output " > Invalid iput[$pickFlag]`n >"
-			Handle_Session -path $path
-		}
-	}
 }
 
 function script:Refresh_Environment {
@@ -331,37 +281,49 @@ function script:List_Environments {
 }
 
 function script:Pick_Environment {
-	
+	param(
+		[string]$envName
+	)
 	$Local:environmentsList = List_Environments -path $script:defaultPath
-	Write-Host ">> $($Local:environmentsList | Where-Object {$_ -match "test_env"})"
-	[string]$private:envIndex = Read-Host "`n idx [q(uit)] => "
-	[int16]$private:arraySize = $local:environmentsList.Count
-
-	[bool]$private:invalidIndex = !(
-		(($private:envIndex -match "^[0-9]+$") -and
-			([int16]$private:envIndex -lt $private:arraySize)) -or
-			($private:envIndex -match "^q$")
-		)
-	if ($invalidIndex) {
-		Write-Output "`n > Invalid idx [$private:envIndex]!."
-		Pick_Environment
+	if (($script:isEnvironmentProvided) -or ($script:isEnvironmentNew)) {
+		[string]$private:env = $($Local:environmentsList | Where-Object {$_ -match $local:envName})
+	} else {
+		[string]$private:envIndex = Read-Host "`n idx [q(uit)] => "
+		[int16]$private:arraySize = $local:environmentsList.Count
+	
+		[bool]$private:invalidIndex = !(
+			(($private:envIndex -match "^[0-9]+$") -and
+				([int16]$private:envIndex -lt $private:arraySize)) -or
+				($private:envIndex -match "^q$")
+			)
+		if ($invalidIndex) {
+			Write-Output "`n > Invalid idx [$private:envIndex]!."
+			Pick_Environment
+		}
+	
+		if ($private:envIndex -match "^q$") {
+			Quit
+		}
+		[string]$private:env = $local:environmentsList[[int16]$private:envIndex]
 	}
 
-	if ($private:envIndex -match "^q$") {
-		Quit
-	}
+	Handle_Selection -env $env
+}
 
-	[string]$private:env = $local:environmentsList[[int16]$private:envIndex]
+function script:Handle_Selection {
+	param(
+		[string]$env
+	)
 	[string]$private:pickFlag = Read-Host "`n > Selectd [$private:env]
  > Activate environment ------- [o]
- > Re-select ------------------ [n]
  > Remove environment --------- [d] 
  > Refresh environment -------- [r]
+ > Re-select ------------------ [n]
  > Quit ----------------------- [q]`n >"
 	$private:pickFlag = $private:pickFlag.ToLower()
 	
 	$local:newEnvPath = Join-Path $script:defaultPath $private:env
-
+	
 	switch -Regex ($private:pickFlag) {
 		('^q$') {
 			Quit
@@ -372,6 +334,10 @@ function script:Pick_Environment {
 		('^o$|^\s$') {
 			Write-Output " > Activating .... "
 			Set-Location $local:newEnvPath
+			[bool]$private:hasProjectsDir = Test-Path (Join-Path $local:newEnvPath "projs")
+			if (!$private:hasProjectsDir) {
+				New-Item -ItemType directory $(Join-Path $private:originalEnvPath "projs") | Out-Null
+			}
 			Activate_Environment -path $local:newEnvPath
 		}
 		('^n$') {
