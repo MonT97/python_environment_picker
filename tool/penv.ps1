@@ -8,8 +8,7 @@ param(
 	[string]$path
 	)
 
-#? Any function has a [cfg_] prefex
-."$PSScriptRoot\config.ps1"
+."$PSScriptRoot\config.ps1"    #? Any function has a [cfg_] prefex
 
 function script:Main {
 	Initiate_Variables
@@ -26,6 +25,7 @@ function script:Main {
 }
 
 function script:Initiate_Variables {
+	[string]$script:initialDirectory = $PWD
 	[string]$local:configFileName = ".penv_config.json"
 	[string]$local:configFilePath = $(Join-Path $psHome $local:configFileName)
 	cfg_Look_For_Config_File -path $local:configFilePath
@@ -69,7 +69,7 @@ function script:Parse_Greet {
 }
 
 function script:Quit {
-	Set-Location $Home
+	Set-Location $script:initialDirectory
 	Write-Output " > Quitting ...`n"
 	Write-Output "|==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|`n`n"
 	exit
@@ -142,7 +142,7 @@ function script:Refresh_Environment {
 
 			Write-Host " > Creating backup ..."
 			try {
-				Copy-Item -r $private:originalEnvPath $private:backupPath 
+				Copy-Item -r -Path $private:originalEnvPath -Destination $private:backupPath 
 			} catch {
 				Write-Error " <!> Something went wrong, couldn't create the backup!.
  $PsItem.ScriptStackTrace"
