@@ -25,7 +25,7 @@ function script:Main {
 }
 
 function script:Initiate_Variables {
-	[string]$script:initialDirectory = $PWD
+	[string]$script:initialDirectory = $PWD.path
 	[string]$local:configFileName = ".penv_config.json"
 	[string]$local:configFilePath = $(Join-Path $psHome $local:configFileName)
 	cfg_Look_For_Config_File -path $local:configFilePath
