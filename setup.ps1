@@ -51,21 +51,31 @@ function script:Install_Tool {
     Write-Host " > installing tool in [$path] ..."
     New-Item -ItemType directory $script:installationPath -Force | Out-Null
     Get-ChildItem $script:toolPath -Filter *.ps1 | Copy-Item -Destination $script:installationPath
-    #TODO separate into a standalone Add_To_PATH function
+    #? No need, it well only be used here!
     [bool]$local:addedToPath = (
         [System.Environment]::GetEnvironmentVariable('path', 'user') -like "*$script:installationPath*")
-    #TODO Add Unistallation functionality [research around]
     if (!($local:addedToPath) -and !($reinstalling)) {
-        $private:oldPATH = [System.Environment]::GetEnvironmentVariable('path', 'user')
-        $private:newPATH = $private:oldPATH + $script:installationPath   
-        New-Item -ItemType file $script:backUpFilePath -Force | Out-Null
-        Write-Output $($private:oldPATH + $script:installationPath) > $script:backUpFilePath
-        [System.Environment]::SetEnvironmentVariable('path', $private:newPATH, 'user')
+        Add2PATH -instPath $script:installationPath -bUpPath $script:backUpFilePath
     }
     Write-Host " > Tool installed ---> [$(Test-Path $script:installationPath)].
- > Added to PATH --> [$local:addedToPath]"
+    > Added to PATH --> [$local:addedToPath]"
     Get-ChildItem $script:installationPath
     Write-Output "`n|==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|`n`n"
+}
+
+
+function script:Add2PATH {
+    param(
+        [parameter(Mandatory)]
+        [string]$instPath,
+        [parameter(Mandatory)]
+        [string]$bUpPath
+    )
+    $private:oldPATH = [System.Environment]::GetEnvironmentVariable('path', 'user')
+    $private:newPATH = $private:oldPATH + $instPath   
+    New-Item -ItemType file $bUpPath -Force | Out-Null
+    Write-Output $($private:oldPATH + $instPath) > $bUpPath
+    [System.Environment]::SetEnvironmentVariable('path', $private:newPATH, 'user')
 }
 
 function script:Quit {

@@ -1,37 +1,37 @@
-function script:cfg_Config {
+function script:cfg_Configure {
 	param(
-		[Parameter(Mandatory)]
 		[string]$path
 	)
 	Write-Host " >> Entered config mode."
-	if ([bool]$local:path){
-		if ((Test-Path $local:path) -and (($local:path) -match ('.*/.*|.*\.*'))) {
-				Write-Host " >> Valid path [$local:path]"
-				$private:configFilePath = $(Join-Path $psHome '/.penv_config.json')
-				$private:rawConfig = Get-Content $private:configFilePath -Raw |ConvertFrom-Json
-				$private:rawConfig.old_default_path = $private:rawConfig.default_path
-				$private:rawConfig.default_path = $local:path
-				$private:rawConfig | ConvertTo-Json > $private:configFilePath
-				Write-Host " >> Default path [$($private:rawConfig.old_default_path)] changed to [$local:path]"
-			} else {
-				Write-Error "<!> Path invalid or doesn't exist!"
-				exit
-			}
-		}
-		
+	if ((Test-Path $local:path)) {
+		Write-Host " >> Valid path [$local:path]"
+		$private:configFilePath = $(Join-Path $psHome '/.penv_config.json')
+		$private:rawConfig = Get-Content $private:configFilePath -Raw |ConvertFrom-Json
+		$private:rawConfig.old_default_path = $private:rawConfig.default_path
+		$private:rawConfig.default_path = $local:path
+		$private:rawConfig | ConvertTo-Json > $private:configFilePath
+		Write-Host " >> Default path [$($private:rawConfig.old_default_path)] changed to [$local:path]"
+	} else {
+		Write-Error "<!> Path invalid or doesn't exist!"
+		exit
 	}
+}
 
 function script:cfg_Look_For_Config_File {
 	param(
 		[Parameter(Mandatory)]
 		[string]$path
 	)
-	[bool]$private:configNotFound = !(Test-Path $local:path)
-	if ($private:configNotFound) {
-		# TODO: check user input!
+	[bool]$private:configFileNotFound = !(Test-Path $local:path)
+	if ($private:configFileNotFound) {
+		#! The used shouldn't know about the internal workings, so no "config file not found" massaga
 		Write-Host "`n !> No default envronments path is provided."
 		$private:environmentPath = Read-Host " !> Provide The evnironments path:`n >"
-		cfg_Create_Config_File -envsPath $private:environmentPath -path $local:path	
+		if (Test-Path $private:environmentPath) {
+			cfg_Create_Config_File -envsPath $private:environmentPath -path $local:path	
+		}
+		Write-Host " <!> invalid path!"
+		cfg_Look_For_Config_File -path $path
 	}
 }
 
@@ -53,4 +53,11 @@ function script:cfg_Create_Config_File {
 		Write-Host ">>> $local:configFromFile"
 		Write-Host " !> Created config file at [$path]."
 		Write-Host " !> New default path is [$($local:configFromFile.default_path)].`n"
+}
+
+function cfg_Uninstall {
+	param(
+		[string]$path
+	)	
+	Write-Host " !> uninstalling tool from path [$path]"
 }

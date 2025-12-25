@@ -5,7 +5,9 @@ param(
 	[parameter(ParameterSetName = 'config', Mandatory)]
 	[switch]$config,
 	[parameter(ParameterSetName = 'config')]
-	[string]$path
+	[string]$path,
+	[parameter(ParameterSetName = 'config')]
+	[switch]$unistall
 	)
 
 ."$PSScriptRoot\config.ps1"    #? Any function has a [cfg_] prefex
@@ -26,6 +28,7 @@ function script:Main {
 
 function script:Initiate_Variables {
 	[string]$script:initialDirectory = $PWD.path
+	#TODO move the config file creation functionality to the setup file
 	[string]$local:configFileName = ".penv_config.json"
 	[string]$local:configFilePath = $(Join-Path $psHome $local:configFileName)
 	cfg_Look_For_Config_File -path $local:configFilePath
@@ -333,12 +336,21 @@ function script:Handle_Selection {
 	}
 }
 
+
 switch ($PSCmdlet.ParameterSetName) {
 	('default') {
 		Main
 	}
 	('config') {
-		cfg_Config -path $script:path
-		Main
+		if ([bool]$script:path) {
+			cfg_Configure -path $script:path
+			Main
+		}
+		if ($script:unistall) { 
+			Write-Warning " <!> uninstall the tool?!!"
+			# TODO after moving the .config.json creation to the setup file, have it pass the installation path into the .config.json
+			cfg_Uninstall
+		}
+		Write-Warning " <!> input invalid, use:`n   > penv -config -path`n   or`n   > penv -config -uninstall"
 	}
 }
