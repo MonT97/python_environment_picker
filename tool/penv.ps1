@@ -26,12 +26,14 @@ function script:Main {
 	}
 }
 
-function script:Initiate_Variables {
+function script:Essential_Variables {
 	[string]$script:initialDirectory = $PWD.path
-	#TODO move the config file creation functionality to the setup file
-	[string]$local:configFileName = ".penv_config.json"
-	[string]$local:configFilePath = $(Join-Path $psHome $local:configFileName)
-	cfg_Look_For_Config_File -path $local:configFilePath
+	[string]$script:configFileName = ".penv_config.json"
+	[string]$script:installationPath = Join-Path $env:LOCALAPPDATA "penvpickr"
+}
+
+function script:Initiate_Variables {
+	[string]$local:configFilePath = $(Join-Path $script:installationPath $script:configFileName)
 	[string]$script:workingDir = Get-Location
 	[string]$script:defaultPath = $(Get-Content $local:configFilePath -Raw |ConvertFrom-Json).default_path
 	[string]$script:newEnvironmentPath = Join-Path $script:defaultPath $script:envName
@@ -64,8 +66,10 @@ function script:Parse_Greet {
 
  > The specified path is:
    [$path]
- > To change the specified:
+ > To change the specified path:
    penv -config -path [example/path]
+ > To uninstall:
+   penv -config -uninstall
 
 |==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|"
 	return $greet
@@ -336,14 +340,15 @@ function script:Handle_Selection {
 	}
 }
 
-
+Essential_Variables
 switch ($PSCmdlet.ParameterSetName) {
 	('default') {
 		Main
 	}
 	('config') {
 		if ([bool]$script:path) {
-			cfg_Configure -path $script:path
+			Write-Host ">> $script:path"
+			cfg_Configure -path $script:path -instPath $script:installationPath -cfgFileName $script:configFileName
 			Main
 		}
 		if ($script:unistall) { 

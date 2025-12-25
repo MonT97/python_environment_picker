@@ -51,7 +51,7 @@ function script:Install_Tool {
     Write-Host " > installing tool in [$path] ..."
     New-Item -ItemType directory $script:installationPath -Force | Out-Null
     Get-ChildItem $script:toolPath -Filter *.ps1 | Copy-Item -Destination $script:installationPath
-    #? No need, it well only be used here!
+    Create_Config
     [bool]$local:addedToPath = (
         [System.Environment]::GetEnvironmentVariable('path', 'user') -like "*$script:installationPath*")
     if (!($local:addedToPath) -and !($reinstalling)) {
@@ -76,6 +76,51 @@ function script:Add2PATH {
     New-Item -ItemType file $bUpPath -Force | Out-Null
     Write-Output $($private:oldPATH + $instPath) > $bUpPath
     [System.Environment]::SetEnvironmentVariable('path', $private:newPATH, 'user')
+}
+
+function script:Create_Config {
+    [string]$local:configFileName = ".penv_config.json"
+	[string]$local:configFilePath = $(Join-Path $script:installationPath $local:configFileName)
+	Look_For_Config_File -path $local:configFilePath
+}
+
+function script:Look_For_Config_File {
+	param(
+		[Parameter(Mandatory)]
+		[string]$path
+	)
+	[bool]$private:configFileNotFound = !(Test-Path $local:path)
+	if ($private:configFileNotFound) {
+		#! The used shouldn't know about the internal workings, so no "config file not found" massaga
+		Write-Host "`n !> No default envronments path is provided."
+		$private:environmentPath = Read-Host " !> Provide The evnironments path:`n >"
+		if (Test-Path $private:environmentPath) {
+			Create_Config_File -envsPath $private:environmentPath -path $local:path	
+		}
+		Write-Host " <!> invalid path!"
+		Look_For_Config_File -path $path
+	}
+}
+
+function script:Create_Config_File {
+	param(
+		[parameter(Mandatory)]
+		[string]$envsPath,
+		[parameter(Mandatory)]
+		[string]$path
+		)
+		New-Item -ItemType File $path | Out-Null
+		$local:config = ConvertTo-Json @{
+			self_path = $path
+			default_path = $envsPath
+			old_default_path = $envsPath
+            installation_path = Split-Path -parent $script:installationPath
+		}
+		$local:config > $path
+		$local:configFromFile = Get-Content $path | ConvertFrom-Json
+		Write-Host ">>> $local:configFromFile"
+		Write-Host " !> Created config file at [$path]."
+		Write-Host " !> New default path is [$($local:configFromFile.default_path)].`n"
 }
 
 function script:Quit {
