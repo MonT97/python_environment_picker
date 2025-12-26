@@ -7,7 +7,7 @@ param(
 	[parameter(ParameterSetName = 'config')]
 	[string]$path,
 	[parameter(ParameterSetName = 'config')]
-	[switch]$unistall
+	[switch]$uninstall
 	)
 
 ."$PSScriptRoot\config.ps1"    #? Any function has a [cfg_] prefex
@@ -26,16 +26,14 @@ function script:Main {
 	}
 }
 
-function script:Essential_Variables {
-	[string]$script:initialDirectory = $PWD.path
-	[string]$script:configFileName = ".penv_config.json"
-	[string]$script:installationPath = Join-Path $env:LOCALAPPDATA "penvpickr"
-}
-
 function script:Initiate_Variables {
-	[string]$local:configFilePath = $(Join-Path $script:installationPath $script:configFileName)
-	[string]$script:workingDir = Get-Location
-	[string]$script:defaultPath = $(Get-Content $local:configFilePath -Raw |ConvertFrom-Json).default_path
+	[string]$script:workingDirectory = $PWD.path
+	[string]$script:configFileName = ".penv_config.json"
+	[string]$script:parentDirectoryPath = Split-Path -Parent $MyInvocation.ScriptName
+	[string]$local:configFilePath = Join-Path $script:parentDirectoryPath $script:configFileName
+	[PSCustomObject]$local:config = $(Get-Content $local:configFilePath -Raw |ConvertFrom-Json)
+	[string]$script:defaultPath = $local:config.default_path
+	[string]$script:installationPath = $local:config.installation_path
 	[string]$script:newEnvironmentPath = Join-Path $script:defaultPath $script:envName
 	[bool]$script:isEnvironmentNew = (
 		!(Test-Path $script:newEnvironmentPath) -and ([bool]$script:envName)
@@ -76,7 +74,7 @@ function script:Parse_Greet {
 }
 
 function script:Quit {
-	Set-Location $script:initialDirectory
+	Set-Location $script:workingDirectory
 	Write-Output " > Quitting ...`n"
 	Write-Output "|==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|`n`n"
 	exit
@@ -340,21 +338,21 @@ function script:Handle_Selection {
 	}
 }
 
-Essential_Variables
 switch ($PSCmdlet.ParameterSetName) {
 	('default') {
 		Main
 	}
 	('config') {
+		Initiate_Variables
 		if ([bool]$script:path) {
 			Write-Host ">> $script:path"
-			cfg_Configure -path $script:path -instPath $script:installationPath -cfgFileName $script:configFileName
-			Main
+			cfg_Configure -path $script:path -instPath $script:parentDirectoryPath -cfgFileName $script:configFileName
+			break
 		}
-		if ($script:unistall) { 
+		if ([bool]$script:uninstall) { 
 			Write-Warning " <!> uninstall the tool?!!"
-			# TODO after moving the .config.json creation to the setup file, have it pass the installation path into the .config.json
-			cfg_Uninstall
+			cfg_Uninstall -instPath $script:installationPath
+			break
 		}
 		Write-Warning " <!> input invalid, use:`n   > penv -config -path`n   or`n   > penv -config -uninstall"
 	}

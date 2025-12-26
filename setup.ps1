@@ -58,7 +58,7 @@ function script:Install_Tool {
         Add2PATH -instPath $script:installationPath -bUpPath $script:backUpFilePath
     }
     Write-Host " > Tool installed ---> [$(Test-Path $script:installationPath)].
-    > Added to PATH --> [$local:addedToPath]"
+ > Added to PATH --> [$local:addedToPath]"
     Get-ChildItem $script:installationPath
     Write-Output "`n|==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|`n`n"
 }
@@ -89,13 +89,14 @@ function script:Look_For_Config_File {
 		[Parameter(Mandatory)]
 		[string]$path
 	)
-	[bool]$private:configFileNotFound = !(Test-Path $local:path)
+	[bool]$private:configFileNotFound = !(Test-Path $path)
 	if ($private:configFileNotFound) {
 		#! The used shouldn't know about the internal workings, so no "config file not found" massaga
 		Write-Host "`n !> No default envronments path is provided."
 		$private:environmentPath = Read-Host " !> Provide The evnironments path:`n >"
 		if (Test-Path $private:environmentPath) {
-			Create_Config_File -envsPath $private:environmentPath -path $local:path	
+			Create_Config_File -envsPath $private:environmentPath -path $path
+            return
 		}
 		Write-Host " <!> invalid path!"
 		Look_For_Config_File -path $path
@@ -111,10 +112,11 @@ function script:Create_Config_File {
 		)
 		New-Item -ItemType File $path | Out-Null
 		$local:config = ConvertTo-Json @{
+            creation_date = $(Get-Date -Format yy/MM/dd--[HH:mm])
 			self_path = $path
 			default_path = $envsPath
 			old_default_path = $envsPath
-            installation_path = Split-Path -parent $script:installationPath
+            installation_path = $script:installationPath
 		}
 		$local:config > $path
 		$local:configFromFile = Get-Content $path | ConvertFrom-Json

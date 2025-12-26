@@ -23,7 +23,21 @@ function script:cfg_Configure {
 
 function cfg_Uninstall {
 	param(
-		[string]$path
+		[string]$instPath
 	)	
-	Write-Host " !> uninstalling tool from path [$path]"
+	Write-Host " !> uninstalling tool from path [$instPath]"
+	[string]$private:deleteFlag = Read-Host " >> delete configuration??, default environment path, etc`n [y|n] > "
+	switch -Regex ($private:deleteFlag.ToLower()) {
+		("^y$") {
+			Remove-Item -Recurse $instPath*
+		}
+		("^n$") {
+			Remove-Item -Recurse $instPath -Exclude *.json
+		}
+		Default {
+			Write-Host " !> invalid input, please enter [y] or [n]"
+			cfg_Uninstall -instPath $instPath
+		}
+	}
+	Write-Host " >> tool uninstalled successfully!"
 }
