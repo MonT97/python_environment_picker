@@ -20,7 +20,7 @@ function script:Main {
 		Pick_Environment -envName $script:envName
 	}
 	elseif ($script:isEnvironmentNew) {
-		Create_New_Environment -envName $script:envName -newEnvPath $script:newEnvironmentPath 
+		Create_New_Environment -envName $script:envName -newEnvPath $script:newEnvironmentPath  -isEnvNew $script:isEnvironmentNew
 	} else {
 		Pick_Environment
 	}
@@ -94,19 +94,22 @@ function script:Create_New_Environment {
 	
 	switch -Regex ($private:pickFlag) {
 		('^y$|^$') {
-			Write-Output " > Creating Environment [$envName] ... `n"
+			Write-Output " > Creating environment [$envName] ... `n"
 			try {
 				py -m venv $newEnvPath
+				if ($LASTEXITCODE -ne 0) {
+					throw "`n$($LASTEXITCODE)`n"
+				}
 			} catch {
 				Write-Error " <!> Environment creation failed.`n[py -m venv `$newEnvPath]
  $PsItem.ScriptStackTrace"
 				Quit
 			}
 			[bool]$private:envCreated = $(test-path $newEnvPath)
-			Write-Output " > environment [$envName] created [$envCreated]`n"
+			Write-Output " > Environment [$envName] created [$envCreated]`n"
 			if ($local:isEnvNew) {
 				New-Item -ItemType directory $(Join-Path $newEnvPath "projs") | Out-Null
-				Pick_Environment
+				Pick_Environment -envName $envName
 			}
 		}
 		('^q$') {
@@ -137,7 +140,7 @@ function script:Refresh_Environment {
 		[string]$envName
 	)
 	[string]$private:refreshFlag = (
-		Read-Host " > refresh [$envName] at [$envsPath]??`n [y|n|q(uit)]`n >"
+		Read-Host " > Refresh [$envName] at [$envsPath]??`n [y|n|q(uit)]`n >"
 		).ToLower()
 	
 	switch -Regex ($private:refreshFlag) {
@@ -160,7 +163,7 @@ function script:Refresh_Environment {
 				pip freeze > Join-Path $private:backupPath ".libs.txt"
 			}
 			catch {
-				Write-Error " <!> Couldn't create pip [requirement.txt] file at [$private:backupPath/.libs.txt]!.`n $PsItem.ScriptStackTrace`n >> Backup .[$envName] at [$private:backupPath] <<"
+				Write-Error " <!> Couldn't create pip [requirement.txt] file at [$private:backupPath/.libs.txt]!.`n $PsItem.ScriptStackTrace`n  !> Tried to backup .[$envName] at [$private:backupPath]"
 				Set-Location $(Join-Path $private:originalEnvPath "Scripts")
 				deactivate
 				Set-Location $envsPath
@@ -172,8 +175,7 @@ function script:Refresh_Environment {
 				" > Refreshing ..."
 				py -m venv $private:originalEnvPath
 			} catch {
-				Write-Error " <!> Environment creation failed.`n[py -m venv $private:originalEnvPath]
-				$PsItem.ScriptStackTrace`n >> Backup [.$envName] at [$private:backupPath] <<"
+				Write-Error " <!> Environment creation failed.`n[py -m venv $private:originalEnvPath]`n $PsItem.ScriptStackTrace`n  !> Tried to backup .[$envName] at [$private:backupPath]"
 				Pick_Environment
 			}
 			Set-Location $private:originalEnvPath
@@ -185,7 +187,7 @@ function script:Refresh_Environment {
 				Write-Error " Couldn't install libraries from file [$private:backupPath/.libs.txt], run
 				cat $private:backupPath/.libs.txt to find out the libraries.`n $PsItem.ScriptStackTrace`n"
 			}
-			Write-Host " > Backup Successful including installed libraries!!."
+			Write-Host " > Backup ----> successful`n > Installed libraries ----> successful!!."
 			Set-Location $envsPath
 			Remove-Item -r $private:backupPath
 			Pick_Environment
@@ -248,7 +250,7 @@ function script:List_Environments {
 	$private:environmentList = [System.Collections.Generic.List[string]]::new()
 	[int16]$private:itr = 0
 	Write-Host "
- > Pick the corresponding idx for the Environment you want:`n
+ > Pick the corresponding index for the Environment you want:`n
  /----------------------------\
   [Index] -----> [Environment Name]
   ----------------------------"
@@ -269,7 +271,7 @@ function script:Pick_Environment {
 		[string]$envName
 	)
 	$Local:environmentsList = List_Environments -path $script:defaultPath
-	if (($script:isEnvironmentProvided) -or ($script:isEnvironmentNew)) {
+	if ([bool]$envName) {
 		[string]$private:env = $($Local:environmentsList | Where-Object {$_ -match $local:envName})
 	} else {
 		[string]$private:envIndex = Read-Host "`n idx [q(uit)] => "
@@ -282,7 +284,7 @@ function script:Pick_Environment {
 			)
 		if ($invalidIndex) {
 			Write-Output "`n > Invalid idx [$private:envIndex]!."
-			Pick_Environment
+			Pick_Environment -envName $envName
 		}
 	
 		if ($private:envIndex -match "^q$") {
@@ -354,6 +356,6 @@ switch ($PSCmdlet.ParameterSetName) {
 			cfg_Uninstall -instPath $script:installationPath
 			break
 		}
-		Write-Warning " <!> input invalid, use:`n   > penv -config -path`n   or`n   > penv -config -uninstall"
+		Write-Warning " <!> input invalid, use:`n  !> penv -config -path`n   or`n  !> penv -config -uninstall"
 	}
 }
