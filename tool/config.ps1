@@ -6,7 +6,7 @@ function script:cfg_Configure {
 		[parameter(Mandatory)]
 		[string]$cfgFileName
 	)
-	Write-Host " >> Entered config mode."
+	Write-Host " >> Config mode:"
 	if ((Test-Path $local:path)) {
 		Write-Host " >> Valid path [$local:path]"
 		$private:configFilePath = $(Join-Path $instPath $cfgFileName)
@@ -16,17 +16,18 @@ function script:cfg_Configure {
 		$private:rawConfig | ConvertTo-Json > $private:configFilePath
 		Write-Host " >> Default path [$($private:rawConfig.old_default_path)] changed to [$local:path]"
 	} else {
-		Write-Error "<!> Path invalid or doesn't exist!"
+		Write-Error " <!> The provided path is invalid or doesn't exist!"
 		exit
 	}
 }
 
 function cfg_Uninstall {
 	param(
+		[parameter(Mandatory)]
 		[string]$instPath
 	)	
-	Write-Host " !> uninstalling tool from path [$instPath]"
-	[string]$private:deleteFlag = Read-Host " >> delete configuration??, default environment path, etc`n [y|n] > "
+	Write-Host " >> Uninstalling tool from path [$instPath]"
+	[string]$private:deleteFlag = Read-Host " >> Delete configuration?, default environment path, etc`n [y|n] > "
 	switch -Regex ($private:deleteFlag.ToLower()) {
 		("^y$") {
 			Remove-Item -Recurse $instPath*
@@ -35,9 +36,9 @@ function cfg_Uninstall {
 			Remove-Item -Recurse $instPath -Exclude *.json
 		}
 		Default {
-			Write-Host " !> invalid input, please enter [y] or [n]"
+			Write-Host " >> Invalid input"
 			cfg_Uninstall -instPath $instPath
 		}
 	}
-	Write-Host " >> tool uninstalled successfully!"
+	Write-Host " >> Tool uninstalled successfully!"
 }

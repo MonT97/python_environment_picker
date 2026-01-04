@@ -13,6 +13,7 @@ function script:Main {
 /==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==\
 |                    Python Environment Picker                     |
 \==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==/
+
 "
     Validate_Installation -path $script:installationPath
 }
@@ -36,10 +37,10 @@ function script:Validate_Installation {
     )
     [bool]$private:isInstalled = Test-Path $path
     if ($private:isInstalled) {
-        Write-Host " > Tool is already installed!!.`n > path [$path]."
-        [string]$private:installFlag = Read-Host " > You want to re-install the penv tool? [y|n]`n > "
+        Write-Host " > Tool already installed!.`n > Path [$path]."
+        [string]$private:installFlag = Read-Host " > Re-install the penv tool?`n [y|n] > "
     } else {
-        [string]$private:installFlag = Read-Host " > You want to install the penv tool? [y|n]`n > "
+        [string]$private:installFlag = Read-Host " > Install the penv tool?`n [y|n] > "
     }
     switch -Regex ($private:installFlag.ToLower()) {
         ('^y$') {
@@ -49,7 +50,7 @@ function script:Validate_Installation {
             Quit
         }
         Default {
-            Write-Host " > Invalid input, please enter [y] or [n]."
+            Write-Host " > Invalid input"
             Validate_Installation -path $path
         }
     }
@@ -61,7 +62,7 @@ function script:Install_Tool {
         [string]$path,
         [bool]$reinstalling
     )
-    Write-Host " > installing tool in [$path] ..."
+    Write-Host " > Installing tool in [$path] ..."
     New-Item -ItemType directory $script:installationPath -Force | Out-Null
     Get-ChildItem $script:toolPath -Filter *.ps1 | Copy-Item -Destination $script:installationPath
     Create_Config
@@ -71,7 +72,7 @@ function script:Install_Tool {
         Add2PATH -instPath $script:installationPath -bUpPath $script:backUpFilePath
     }
     Write-Host " > Tool installed ---> [$(Test-Path $script:installationPath)].
- > Added to PATH --> [$local:addedToPath]"
+ > Added to PATH ----> [$local:addedToPath]"
     Get-ChildItem $script:installationPath
     Write-Output "`n|==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|`n`n"
 }
@@ -105,13 +106,13 @@ function script:Look_For_Config_File {
 	[bool]$private:configFileNotFound = !(Test-Path $path)
 	if ($private:configFileNotFound) {
 		#! The used shouldn't know about the internal workings, so no "config file not found" massaga
-		Write-Host "`n !> No default envronments path is provided."
+		Write-Host "`n > No default envronments path is provided."
 		$private:environmentPath = Read-Host " !> Provide The evnironments path:`n >"
 		if (Test-Path $private:environmentPath) {
 			Create_Config_File -envsPath $private:environmentPath -path $path
             return
 		}
-		Write-Host " <!> invalid path!"
+		Write-Host " <!> Invalid path!"
 		Look_For_Config_File -path $path
 	}
 }
@@ -127,15 +128,13 @@ function script:Create_Config_File {
 		$local:config = ConvertTo-Json @{
             creation_date = $(Get-Date -Format yy/MM/dd--[HH:mm])
 			self_path = $path
-			default_path = $envsPath
-			old_default_path = $envsPath
+			default_environments_path = $envsPath
+			old_default_environments_path = $envsPath
             installation_path = $script:installationPath
 		}
 		$local:config > $path
-		$local:configFromFile = Get-Content $path | ConvertFrom-Json
-		Write-Host ">>> $local:configFromFile"
-		Write-Host " !> Created config file at [$path]."
-		Write-Host " !> New default path is [$($local:configFromFile.default_path)].`n"
+		Write-Host " > Created config file at [$path]."
+		Write-Host " > New default path is [$($local:configFromFile.default_path)].`n"
 }
 
 function script:Quit {
@@ -145,5 +144,4 @@ function script:Quit {
 	exit
 }
 
-[string]$script:selfName = $MyInvocation.MyCommand
 Main
