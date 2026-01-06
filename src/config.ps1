@@ -32,10 +32,11 @@ function cfg_Uninstall {
 	Write-Host " >> Uninstalling tool from path [$instPath]"
 	do {
 		[string]$private:deleteFlag = Read-Host (" >> Delete configuration?, default environments path, etc`n [y|n] > ").ToLower()
-		if ($private:deleteFlag -notmatch '^y$|^n$') {
+		$private:inpFlag = $private:deleteFlag -notmatch '^y$|^n$'
+		if ($private:inpFlag) {
 			Write-Host " >> Invalid input"
 		}
-	} while ($private:deleteFlag -notmatch '^y$|^n$')
+	} while ($private:inpFlag)
 	switch -Regex ($private:deleteFlag) {
 		('^y$') {
 			Remove-Item -Recurse $instPath*

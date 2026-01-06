@@ -39,10 +39,11 @@ function script:Validate_Installation {
     [bool]$private:isInstalled = Test-Path $path
     do {
         [string]$private:installFlag = (Read-Host " > Install the penv tool?`n [y|n] > ").ToLower()
-        if ($private:installFlag -notmatch '^y$|^n$') {
+        $private:inpFlag = $private:installFlag -notmatch '^y$|^n$'
+        if ($private:inpFlag) {
             Write-Host " > Invalid input`n"
         }
-    } while ($private:installFlag -notmatch '^y$|^n$')
+    } while ($private:inpFlag)
     switch -Regex ($private:installFlag) {
         ('^y$') {
             Install_Tool -instPath $script:installationPath -path $path -reinstalling $private:isInstalled

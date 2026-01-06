@@ -85,10 +85,11 @@ function script:Create_New_Environment {
 	do {
 		$private:pickFlag = (Read-Host " > Create new [$envName] at [$newEnvPath]?
  [y|q(uit)]`n >").ToLower()
-		if ($private:pickFlag -notmatch '^y$|^$|^q$') {
-			Write-Output " > Invalid iput[$private:pickFlag]`n >"
+		$private:inpFlag = $private:pickFlag -notmatch '^y$|^$|^q$'
+		if ($private:inpFlag) {
+			Write-Output " > Invalid iput[$private:inpFlag]`n >"
 		}
-	} while ($private:pickFlag -notmatch '^y$|^$|^q$')
+	} while ($private:inpFlag)
 	
 	switch -Regex ($private:pickFlag) {
 		('^y$|^$') {
@@ -134,10 +135,11 @@ function script:Refresh_Environment {
 		[string]$private:refreshFlag = (
 			Read-Host " > Refresh [$envName] at [$envsPath]?`n [y|n|q(uit)] >"
 			).ToLower()
-		if ($private:refreshFlag -notmatch '^y$|^$|^n$|^q$') {
+		$private:inpFlag = $private:refreshFlag -notmatch '^y$|^$|^n$|^q$'
+		if ($private:inpFlag) {
 			Write-Host "`n > Invalid input [$private:refreshFlag]"
 		}
-	} while ($private:refreshFlag -notmatch '^y$|^$|^n$|^q$')
+	} while ($private:inpFlag)
 
 	switch -Regex ($private:refreshFlag) {
 		('^n$') {
@@ -212,10 +214,11 @@ function script:Remove_Environment{
 	do {
 		[string]$private:delInput = (Read-Host " > Are you sure you want to:
  > Delete [$envName] ----<in>---- [$path]?`n  [y|n] >").ToLower()
-		if ($private:delInput -notmatch '^y$|$n^') {
+		$private:inpFlag = $private:delInput -notmatch '^y$|^n$'
+		if ($private:inpFlag) {
 			Write-Output "`n > Invalid input [$private:delInput]"
 		}
-	} while ($private:delInput -notmatch '^y$|^n$')
+	} while ($private:inpFlag)
 	switch -Regex ($private:delInput) {
 		('^y$') {
 			Set-Location $script:defaultPath
@@ -293,18 +296,19 @@ function script:Handle_Selection {
 		[parameter(Mandatory)]
 		[string]$env
 	)
+	$local:envPath = Join-Path $script:defaultPath $private:env
 	do {
-		$local:envPath = Join-Path $script:defaultPath $private:env
 		[string]$private:pickFlag = (Read-Host "`n > Selected [$private:env]
  > Activate environment ------- [o]
  > Remove environment --------- [d] 
  > Refresh environment -------- [r]
  > Re-select ------------------ [n]
  > Quit ----------------------- [q]`n >").ToLower()
-		if ($private:pickFlag -notmatch '^q$|^d$|^o$|^n$|^r$|^\s$') {
+		$private:inpFlag = $private:pickFlag -notmatch '^q$|^d$|^o$|^n$|^r$|^\s$'
+		if ($private:inpFlag) {
 			Write-Output " > Invalid input [$private:pickFlag]"
 		}
-	} while ($private:pickFlag -notmatch '^q$|^d$|^o$|^n$|^r$|^\s$')
+	} while ($private:inpFlag)
 	switch -Regex ($private:pickFlag) {
 		('^q$') {
 			utl_Quit -path $script:activeDirectory
@@ -334,10 +338,8 @@ function script:Handle_Main_Input{
 	param(
 		[string]$mainInput
 	)
+	utl_Validate_Py_Installation
 	Initiate_Variables
-	do {
-		Write-Warning " <!> Input invalid, use:`n     penv -config -path`n   or`n     penv -config -uninstall"
-	} while ($mainInput -cnotin ('default', 'config'))
 	switch ($mainInput) {
 		('default') {
 			Main
