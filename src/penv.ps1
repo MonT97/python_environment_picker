@@ -10,6 +10,7 @@ param(
 	[switch]$uninstall
 	)
 
+."$PSScriptRoot\utils.ps1"    #? Any function with a [utl_] prefex
 ."$PSScriptRoot\config.ps1"    #? Any function with a [cfg_] prefex
 
 function script:Main {
@@ -26,7 +27,7 @@ function script:Main {
 }
 
 function script:Initiate_Variables {
-	[string]$script:workingDirectory = $PWD.path
+	[string]$script:activeDirectory = $PWD.path
 	[string]$script:configFileName = ".penv_config.json"
 	[string]$script:parentDirectoryPath = Split-Path -Parent $MyInvocation.ScriptName
 	[string]$local:configFilePath = Join-Path $script:parentDirectoryPath $script:configFileName
@@ -40,7 +41,14 @@ function script:Initiate_Variables {
 	[bool]$script:isEnvironmentProvided = (
 		(Test-Path $script:newEnvironmentPath) -and ([bool]$script:envName)
 		)
+	function script:Validata_Initial_Variables {
+		if (!(Test-Path $script:defaultPath)) {
+			Write-Host " <!> The specified path doesn't exist, provide another one"
+			utl_Quit -path $script:activeDirectory
+		}
 	}
+	Validata_Initial_Variables
+}
 	
 function script:Parse_Greet {
 	param(
@@ -57,18 +65,13 @@ function script:Parse_Greet {
    [$path]
  > To change the specified path:
    penv -config -path [example/path]
- > To uninstall:
+ > To create a new environment:
+   penv [env_name]
+ > To uninstall the tool:
    penv -config -uninstall
-
-|==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|"
+   
+|==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|`n"
 	return $greet
-}
-
-function script:Quit {
-	Set-Location $script:workingDirectory
-	Write-Output "`n > Quitting ...`n"
-	Write-Output "|==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|`n`n"
-	exit
 }
 
 function script:Create_New_Environment {
@@ -79,19 +82,23 @@ function script:Create_New_Environment {
 		[string]$newEnvPath,
 		[bool]$isEnvNew
 	)
-	$private:pickFlag = Read-Host " > Create new [$envName] at [$newEnvPath]?
-   [y|q(uit)]`n >"
-	$private:pickFlag = $private:pickFlag.ToLower()
+	do {
+		$private:pickFlag = (Read-Host " > Create new [$envName] at [$newEnvPath]?
+ [y|q(uit)]`n >").ToLower()
+		if ($private:pickFlag -notmatch '^y$|^$|^q$') {
+			Write-Output " > Invalid iput[$private:pickFlag]`n >"
+		}
+	} while ($private:pickFlag -notmatch '^y$|^$|^q$')
 	
 	switch -Regex ($private:pickFlag) {
 		('^y$|^$') {
 			Write-Output " > Creating environment [$envName] ... `n"
 			try {
-				py -m vesdnv $newEnvPath
-				Throw_Error
+				py -m venv $newEnvPath
+				utl_Throw_Error
 			} catch {
 				Write-Error " <!> Environment creation failed.`n[py -m venv `$newEnvPath]"
-				Quit
+				utl_Quit -path $script:activeDirectory
 			}
 			[bool]$private:envCreated = $(test-path $newEnvPath)
 			Write-Output " > Environment [$envName] created [$envCreated]`n"
@@ -101,19 +108,8 @@ function script:Create_New_Environment {
 			}
 		}
 		('^q$') {
-			Quit
+			utl_Quit -path $script:activeDirectory
 		}
-		default {
-			Write-Output " > Invalid iput[$private:pickFlag]`n >"
-			Create_New_Environment -envName $envName -newEnvPath $newEnvPath
-		}
-	}
-}
-
-
-function script:Throw_Error{
-	if ($LASTEXITCODE -ne 0) {
-		throw "`n$($LASTEXITCODE)`n"
 	}
 }
 
@@ -134,11 +130,22 @@ function script:Refresh_Environment {
 		[Parameter(Mandatory)]
 		[string]$envName
 	)
-	[string]$private:refreshFlag = (
-		Read-Host " > Refresh [$envName] at [$envsPath]?`n [y|n|q(uit)]`n >"
-		).ToLower()
-	
+	do {
+		[string]$private:refreshFlag = (
+			Read-Host " > Refresh [$envName] at [$envsPath]?`n [y|n|q(uit)] >"
+			).ToLower()
+		if ($private:refreshFlag -notmatch '^y$|^$|^n$|^q$') {
+			Write-Host "`n > Invalid input [$private:refreshFlag]"
+		}
+	} while ($private:refreshFlag -notmatch '^y$|^$|^n$|^q$')
+
 	switch -Regex ($private:refreshFlag) {
+		('^n$') {
+			Pick_Environment
+		}
+		('^q$') {
+			utl_Quit -path $script:activeDirectory
+		}
 		('^y$|^$') {
 			[string]$private:originalEnvPath = Join-Path $envsPath $envName
 			[string]$private:backupPath = Join-Path $envsPath ".$envName"
@@ -155,7 +162,7 @@ function script:Refresh_Environment {
 			Set-Location $envsPath
 			try {
 				pip freeze > Join-Path $private:backupPath ".libs.txt"
-				Throw_Error
+				utl_Throw_Error
 			}
 			catch {
 				Write-Error " <!> Couldn't create pip [requirement.txt] file at [$private:backupPath/.libs.txt]!.`n  !> Tried to backup .[$envName] at [$private:backupPath]`n  !> Consider manual backup"
@@ -169,7 +176,7 @@ function script:Refresh_Environment {
 			try {
 				" > Refreshing ..."
 				py -m venv $private:originalEnvPath
-				Throw_Error
+				utl_Throw_Error
 			} catch {
 				Write-Error " <!> Environment creation failed.`n[py -m venv $private:originalEnvPath]  !> Tried to backup .[$envName] at [$private:backupPath]"
 				Pick_Environment
@@ -179,7 +186,7 @@ function script:Refresh_Environment {
 			Activate_Environment -path $private:originalEnvPath
 			try {
 				pip install -r $(Join-Path $private:backupPath ".libs.txt")
-				Throw_Error
+				utl_Throw_Error
 			} catch {
 				Write-Error " <!> Couldn't install libraries from file [$private:backupPath/.libs.txt],  !> Run`n     cat $private:backupPath/.libs.txt to find out the libraries"
 			}
@@ -187,16 +194,6 @@ function script:Refresh_Environment {
 			Set-Location $envsPath
 			Remove-Item -r $private:backupPath
 			Pick_Environment
-
-		}
-		('^n$') {
-			Pick_Environment
-		}
-		('^q$') {
-			Quit
-		} default {
-			Write-Host "`n > Invalid input [$private:refreshFlag]"
-			Refresh_Environment -envsPath $envsPath -envName $envName
 		}
 	}
 }
@@ -209,31 +206,27 @@ function script:Remove_Environment{
 		[string]$path
 	)
 	if ($envName -cne (Split-Path $path -Leaf)) {
-		Write-Error "`n <!> Preventative Crash:
-     [$envName] isn't found in [$path].
-	 Continuing deletion would haved yielded unpredictable results, consider manual removal instead"
+		Write-Error "`n <!> Preventative Crash: [$envName] isn't found in [$path] continuing deletion would have yielded unpredictable results; consider manual removal instead"
 		Pick_Environment
 	}
-	[string]$private:delInput = Read-Host " > Are you sure you want to:
- > Delete [$envName] ----<in>---- [$path]?
-   [y|n] >"
-	$private:delInput = $private:delInput.ToLower()
-	
-	switch -Regex ($private:delInput){
-		('^y$') {	
-			Set-Location $global:defaultPath
+	do {
+		[string]$private:delInput = (Read-Host " > Are you sure you want to:
+ > Delete [$envName] ----<in>---- [$path]?`n  [y|n] >").ToLower()
+		if ($private:delInput -notmatch '^y$|$n^') {
+			Write-Output "`n > Invalid input [$private:delInput]"
+		}
+	} while ($private:delInput -notmatch '^y$|^n$')
+	switch -Regex ($private:delInput) {
+		('^y$') {
+			Set-Location $script:defaultPath
 			Write-Output " > Deleting ... "
 			Remove-Item -r $path
 			Write-Output " > Environment [$envName] was deleted successfully"
 			Pick_Environment
 		}
 		('^n$') {
-			Set-Location $global:defaultPath
+			Set-Location $script:defaultPath
 			Pick_Environment
-		}
-		default {
-			Write-Output "`n > Invalid input [$private:delInput]"
-			Remove_Environment -path $newEnvPath -envName $envName
 		}
 	}
 }
@@ -244,13 +237,18 @@ function script:List_Environments {
 		[string]$path
 	)
 	$private:environmentList = [System.Collections.Generic.List[string]]::new()
+	$private:environments = $(Get-ChildItem $path -Name)
+	if (![bool]$private:environments.Length){
+		Write-Host " > The provided path is empty, change the path or create a new environment"
+		utl_Quit -path $script:activeDirectory
+	}
 	[int16]$private:itr = 0
 	Write-Host "
  > Pick the corresponding index for the Environment you want:`n
  /---------------------------------\
   [Index] -----> [Environment Name]
   ---------------------------------"
-	foreach($env in $(Get-ChildItem $path -Name)) {
+	foreach($env in $private:environments) {
 
 		Write-Host "    [$private:itr] --------> [$env]"
 		$private:itr+=1
@@ -270,25 +268,23 @@ function script:Pick_Environment {
 	if ([bool]$envName) {
 		[string]$private:env = $($Local:environmentsList | Where-Object {$_ -match $local:envName})
 	} else {
-		[string]$private:envIndex = Read-Host "`n idx [q(uit)] => "
+		[string]$private:envIndex = Read-Host "`n [idx|q(uit)] => "
 		[int16]$private:arraySize = $local:environmentsList.Count
 	
 		[bool]$private:invalidIndex = !(
-			(($private:envIndex -match "^[0-9]+$") -and
+			(($private:envIndex -match '^[0-9]+$') -and
 				([int16]$private:envIndex -lt $private:arraySize)) -or
-				($private:envIndex -match "^q$")
+				($private:envIndex -match '^q$')
 			)
 		if ($invalidIndex) {
 			Write-Output "`n > Invalid idx [$private:envIndex]!"
 			Pick_Environment -envName $envName
 		}
-	
-		if ($private:envIndex -match "^q$") {
-			Quit
+		if ($private:envIndex -match '^q$') {
+			utl_Quit -path $script:activeDirectory
 		}
 		[string]$private:env = $local:environmentsList[[int16]$private:envIndex]
 	}
-
 	Handle_Selection -env $env
 }
 
@@ -297,41 +293,39 @@ function script:Handle_Selection {
 		[parameter(Mandatory)]
 		[string]$env
 	)
-	[string]$private:pickFlag = Read-Host "`n > Selected [$private:env]
+	do {
+		$local:envPath = Join-Path $script:defaultPath $private:env
+		[string]$private:pickFlag = (Read-Host "`n > Selected [$private:env]
  > Activate environment ------- [o]
  > Remove environment --------- [d] 
  > Refresh environment -------- [r]
  > Re-select ------------------ [n]
- > Quit ----------------------- [q]`n >" -
-	$private:pickFlag = $private:pickFlag.ToLower()
-	
-	$local:newEnvPath = Join-Path $script:defaultPath $private:env
-	
+ > Quit ----------------------- [q]`n >").ToLower()
+		if ($private:pickFlag -notmatch '^q$|^d$|^o$|^n$|^r$|^\s$') {
+			Write-Output " > Invalid input [$private:pickFlag]"
+		}
+	} while ($private:pickFlag -notmatch '^q$|^d$|^o$|^n$|^r$|^\s$')
 	switch -Regex ($private:pickFlag) {
 		('^q$') {
-			Quit
+			utl_Quit -path $script:activeDirectory
 		}
 		('^d$') {
-			Remove_Environment -path $local:newEnvPath -envName $private:env
+			Remove_Environment -path $local:envPath -envName $private:env
 		}
 		('^o$|^\s$') {
 			Write-Output " > Activating .... "
-			Set-Location $local:newEnvPath
-			[bool]$private:hasProjectsDir = Test-Path (Join-Path $local:newEnvPath "projs")
+			Set-Location $local:envPath
+			[bool]$private:hasProjectsDir = Test-Path (Join-Path $local:envPath "projs")
 			if (!$private:hasProjectsDir) {
-				New-Item -ItemType directory $(Join-Path $private:originalEnvPath "projs") | Out-Null
+				New-Item -ItemType directory $(Join-Path $private:envPath "projs") | Out-Null
 			}
-			Activate_Environment -path $local:newEnvPath
+			Activate_Environment -path $local:envPath
 		}
 		('^n$') {
 			Pick_Environment
 		}
 		('^r$') {
-			Refresh_Environment -enviromentsPath $script:defaultPath -envName $private:env
-		}
-		default {
-			Write-Output " > Invalid input [$private:pickFlag]"
-			Pick_Environment
+			Refresh_Environment -envsPath $script:defaultPath -envName $private:env
 		}
 	}
 }
@@ -341,6 +335,9 @@ function script:Handle_Main_Input{
 		[string]$mainInput
 	)
 	Initiate_Variables
+	do {
+		Write-Warning " <!> Input invalid, use:`n     penv -config -path`n   or`n     penv -config -uninstall"
+	} while ($mainInput -cnotin ('default', 'config'))
 	switch ($mainInput) {
 		('default') {
 			Main
@@ -354,7 +351,6 @@ function script:Handle_Main_Input{
 				cfg_Uninstall -instPath $script:installationPath
 				break
 			}
-			Write-Warning " <!> Input invalid, use:`n     penv -config -path`n   or`n     penv -config -uninstall"
 		}
 	}
 }

@@ -1,3 +1,4 @@
+."$PSScriptRoot\utils.ps1"    #? Any function with a [utl_] prefex
 function script:Main {
     Initiate_Variables
     Write-Output "
@@ -19,7 +20,7 @@ function script:Main {
 }
 
 function script:Initiate_Variables {
-    [string]$script:toolDirectory = "tool"
+    [string]$script:toolDirectory = "src"
     [string]$script:installationDirectory = "penvpickr"
     [string]$script:mainScriptName = "penv.ps1"
     [string]$script:backupFileName = ".PATH_back_up.txt"
@@ -36,22 +37,18 @@ function script:Validate_Installation {
         [string]$path
     )
     [bool]$private:isInstalled = Test-Path $path
-    if ($private:isInstalled) {
-        Write-Host " > Tool already installed!.`n > Path [$path]."
-        [string]$private:installFlag = Read-Host " > Re-install the penv tool?`n [y|n] > "
-    } else {
-        [string]$private:installFlag = Read-Host " > Install the penv tool?`n [y|n] > "
-    }
-    switch -Regex ($private:installFlag.ToLower()) {
+    do {
+        [string]$private:installFlag = (Read-Host " > Install the penv tool?`n [y|n] > ").ToLower()
+        if ($private:installFlag -notmatch '^y$|^n$') {
+            Write-Host " > Invalid input`n"
+        }
+    } while ($private:installFlag -notmatch '^y$|^n$')
+    switch -Regex ($private:installFlag) {
         ('^y$') {
-            Install_Tool -path $path -reinstalling $private:isInstalled
+            Install_Tool -instPath $script:installationPath -path $path -reinstalling $private:isInstalled
         }
         ('^n$') {
-            Quit
-        }
-        Default {
-            Write-Host " > Invalid input"
-            Validate_Installation -path $path
+            utl_Quit -path $script:activeDirectory
         }
     }
 }
@@ -59,36 +56,37 @@ function script:Validate_Installation {
 function script:Install_Tool {
     param (
         [parameter(Mandatory)]
+        [string]$instPath,
+        [parameter(Mandatory)]
         [string]$path,
         [bool]$reinstalling
     )
-    Write-Host " > Installing tool in [$path] ..."
-    New-Item -ItemType directory $script:installationPath -Force | Out-Null
-    Get-ChildItem $script:toolPath -Filter *.ps1 | Copy-Item -Destination $script:installationPath
+    Write-Host "`n > Installing tool in [$path] ..."
+    New-Item -ItemType directory $instPath -Force | Out-Null
+    Get-ChildItem $script:toolPath -Filter *.ps1 | Copy-Item -Destination $instPath
     Create_Config
-    [bool]$local:addedToPath = (
-        [System.Environment]::GetEnvironmentVariable('path', 'user') -like "*$script:installationPath*")
-    if (!($local:addedToPath) -and !($reinstalling)) {
-        Add2PATH -instPath $script:installationPath -bUpPath $script:backUpFilePath
+    $local:addedToPATH = {param($p) [System.Environment]::GetEnvironmentVariable('path', 'user') -like "*$instPath*"}
+    if (!(&$local:addedToPATH)) {
+        Add_To_PATH -instPath $instPath -backUpPath $script:backUpFilePath
     }
-    Write-Host " > Tool installed ---> [$(Test-Path $script:installationPath)].
- > Added to PATH ----> [$local:addedToPath]"
-    Get-ChildItem $script:installationPath
-    Write-Output "`n|==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|`n`n"
+    Write-Host " > Tool installed ---> [$(Test-Path $instPath)].
+ > Added to PATH ----> [$(&$local:addedToPATH)]"
+    Get-ChildItem $instPath
+    Write-Host "`n > Type [penv] in any terminal session to run the tool"
+    Write-Output "`n|==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|"
 }
 
-
-function script:Add2PATH {
+function script:Add_To_PATH {
     param(
         [parameter(Mandatory)]
         [string]$instPath,
         [parameter(Mandatory)]
-        [string]$bUpPath
+        [string]$backUpPath
     )
     $private:oldPATH = [System.Environment]::GetEnvironmentVariable('path', 'user')
-    $private:newPATH = $private:oldPATH + $instPath   
-    New-Item -ItemType file $bUpPath -Force | Out-Null
-    Write-Output $($private:oldPATH + $instPath) > $bUpPath
+    $private:newPATH = $private:oldPATH + ";$instPath"
+    New-Item -ItemType file $backUpPath -Force | Out-Null
+    Write-Output $private:oldPATH > $backUpPath
     [System.Environment]::SetEnvironmentVariable('path', $private:newPATH, 'user')
 }
 
@@ -106,7 +104,7 @@ function script:Look_For_Config_File {
 	[bool]$private:configFileNotFound = !(Test-Path $path)
 	if ($private:configFileNotFound) {
 		#! The used shouldn't know about the internal workings, so no "config file not found" massaga
-		Write-Host "`n > No default envronments path is provided."
+		Write-Host "`n > No default envronments path is provided"
 		$private:environmentPath = Read-Host " !> Provide The evnironments path:`n >"
 		if (Test-Path $private:environmentPath) {
 			Create_Config_File -envsPath $private:environmentPath -path $path
@@ -124,24 +122,18 @@ function script:Create_Config_File {
 		[parameter(Mandatory)]
 		[string]$path
 		)
-		New-Item -ItemType File $path | Out-Null
-		$local:config = ConvertTo-Json @{
-            creation_date = $(Get-Date -Format yy/MM/dd--[HH:mm])
-			self_path = $path
-			default_environments_path = $envsPath
-			old_default_environments_path = $envsPath
-            installation_path = $script:installationPath
-		}
-		$local:config > $path
-		Write-Host " > Created config file at [$path]."
-		Write-Host " > New default path is [$($local:configFromFile.default_path)].`n"
-}
-
-function script:Quit {
-	Set-Location $script:activeDirectory
-	Write-Output " > Quitting ...`n"
-	Write-Output "|==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|`n`n"
-	exit
+    New-Item -ItemType File $path | Out-Null
+    $local:config = ConvertTo-Json @{
+        creation_date = $(Get-Date -Format yy/MM/dd--[HH:mm])
+        self_path = $path
+        default_environments_path = $envsPath
+        old_default_environments_path = $envsPath
+        installation_path = $script:installationPath
+    }
+    $local:config > $path
+    $local:configFromFile = ConvertFrom-Json $local:config
+    Write-Host " > Created config file at [$path]"
+    Write-Host " > New default path is [$($local:configFromFile.default_environments_path)]`n"
 }
 
 Main
