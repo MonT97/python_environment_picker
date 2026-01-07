@@ -29,12 +29,12 @@ function script:Main {
 function script:Initiate_Variables {
 	[string]$script:activeDirectory = $PWD.path
 	[string]$script:configFileName = ".penv_config.json"
-	[string]$script:parentDirectoryPath = Split-Path -Parent $MyInvocation.ScriptName
-	[string]$local:configFilePath = Join-Path $script:parentDirectoryPath $script:configFileName
+	[string]$script:parentDirectoryPath = $PSScriptRoot
+	[string]$local:configFilePath = $(Join-Path $script:parentDirectoryPath $script:configFileName)
 	[PSCustomObject]$local:config = $(Get-Content $local:configFilePath -Raw |ConvertFrom-Json)
 	[string]$script:defaultPath = $local:config.default_environments_path
 	[string]$script:installationPath = $local:config.installation_path
-	[string]$script:newEnvironmentPath = Join-Path $script:defaultPath $script:envName
+	[string]$script:newEnvironmentPath = $(Join-Path $script:defaultPath $script:envName)
 	[bool]$script:isEnvironmentNew = (
 		!(Test-Path $script:newEnvironmentPath) -and ([bool]$script:envName)
 		)
@@ -135,7 +135,7 @@ function script:Refresh_Environment {
 		[string]$private:refreshFlag = (
 			Read-Host " > Refresh [$envName] at [$envsPath]?`n [y|n|q(uit)] >"
 			).ToLower()
-		$private:inpFlag = $private:refreshFlag -notmatch '^y$|^$|^n$|^q$'
+		$private:inpFlag = $($private:refreshFlag -notmatch '^y$|^$|^n$|^q$')
 		if ($private:inpFlag) {
 			Write-Host "`n > Invalid input [$private:refreshFlag]"
 		}
@@ -149,8 +149,8 @@ function script:Refresh_Environment {
 			utl_Quit -path $script:activeDirectory
 		}
 		('^y$|^$') {
-			[string]$private:originalEnvPath = Join-Path $envsPath $envName
-			[string]$private:backupPath = Join-Path $envsPath ".$envName"
+			[string]$private:originalEnvPath = $(Join-Path $envsPath $envName)
+			[string]$private:backupPath = $(Join-Path $envsPath ".$envName")
 
 			Write-Host " > Creating backup ..."
 			try {
@@ -163,11 +163,12 @@ function script:Refresh_Environment {
 			Activate_Environment -path $private:originalEnvPath
 			Set-Location $envsPath
 			try {
-				pip freeze > Join-Path $private:backupPath ".libs.txt"
+				pip freeze > $(Join-Path $private:backupPath ".libs.txt")
 				utl_Throw_Error
 			}
 			catch {
-				Write-Error " <!> Couldn't create pip [requirement.txt] file at [$private:backupPath/.libs.txt]!.`n  !> Tried to backup .[$envName] at [$private:backupPath]`n  !> Consider manual backup"
+				Write-Error " <!> Couldn't create pip [requirement.txt] file a
+				[$private:backupPath/.libs.txt]!.`n  !> Tried to backup .[$envName] at [$private:backupPath]`n  !> Consider manual backup"
 				Set-Location $(Join-Path $private:originalEnvPath "Scripts")
 				deactivate
 				Set-Location $envsPath
@@ -177,7 +178,7 @@ function script:Refresh_Environment {
 			Remove-Item -r $private:originalEnvPath
 			try {
 				" > Refreshing ..."
-				py -m venv $private:originalEnvPath
+				py -m venv "$private:originalEnvPath"
 				utl_Throw_Error
 			} catch {
 				Write-Error " <!> Environment creation failed.`n[py -m venv $private:originalEnvPath]  !> Tried to backup .[$envName] at [$private:backupPath]"
@@ -214,7 +215,7 @@ function script:Remove_Environment{
 	do {
 		[string]$private:delInput = (Read-Host " > Are you sure you want to:
  > Delete [$envName] ----<in>---- [$path]?`n  [y|n] >").ToLower()
-		$private:inpFlag = $private:delInput -notmatch '^y$|^n$'
+		$private:inpFlag = $($private:delInput -notmatch '^y$|^n$')
 		if ($private:inpFlag) {
 			Write-Output "`n > Invalid input [$private:delInput]"
 		}
@@ -268,25 +269,29 @@ function script:Pick_Environment {
 		[string]$envName
 	)
 	$Local:environmentsList = List_Environments -path $script:defaultPath
+	[int16]$private:arraySize = $local:environmentsList.Count
 	if ([bool]$envName) {
-		[string]$private:env = $($Local:environmentsList | Where-Object {$_ -match $local:envName})
+		[string]$private:env = $($Local:environmentsList | Where-Object {$_ -eq $envName})
 	} else {
-		[string]$private:envIndex = Read-Host "`n [idx|q(uit)] => "
-		[int16]$private:arraySize = $local:environmentsList.Count
-	
-		[bool]$private:invalidIndex = !(
-			(($private:envIndex -match '^[0-9]+$') -and
-				([int16]$private:envIndex -lt $private:arraySize)) -or
-				($private:envIndex -match '^q$')
-			)
-		if ($invalidIndex) {
-			Write-Output "`n > Invalid idx [$private:envIndex]!"
-			Pick_Environment -envName $envName
+		do {
+			[string]$private:envIndex = Read-Host "`n [idx|q(uit)] => "
+			[bool]$private:invalidIndex = !(
+				(($private:envIndex -match '^[0-9]+$') -and
+					([int16]$private:envIndex -lt $private:arraySize)) -or
+					($private:envIndex -match '^q$')
+				)
+			if ($private:invalidIndex) {
+				Write-Output "`n > Invalid idx [$private:envIndex]!"
+			}
+		} while ($private:invalidIndex)
+		switch -Regex ($private:envIndex) {
+			('^q$') {
+				utl_Quit -path $script:activeDirectory
+			}
+			('^[0-9]+$') {
+				[string]$private:env = $local:environmentsList[[int16]$private:envIndex]
+			}
 		}
-		if ($private:envIndex -match '^q$') {
-			utl_Quit -path $script:activeDirectory
-		}
-		[string]$private:env = $local:environmentsList[[int16]$private:envIndex]
 	}
 	Handle_Selection -env $env
 }
@@ -296,7 +301,7 @@ function script:Handle_Selection {
 		[parameter(Mandatory)]
 		[string]$env
 	)
-	$local:envPath = Join-Path $script:defaultPath $private:env
+	$local:envPath = $(Join-Path $script:defaultPath $private:env)
 	do {
 		[string]$private:pickFlag = (Read-Host "`n > Selected [$private:env]
  > Activate environment ------- [o]

@@ -9,7 +9,7 @@ function script:cfg_Configure {
 		[string]$cfgFileName
 	)
 	Write-Host " >> Config mode:"
-	if ((Test-Path $path)) {
+	if (Test-Path $path) {
 		Write-Host " >> Valid path [$path]"
 		$private:configFilePath = $(Join-Path $instPath $cfgFileName)
 		$private:rawConfig = Get-Content $private:configFilePath -Raw |ConvertFrom-Json
@@ -20,7 +20,6 @@ function script:cfg_Configure {
 		Write-Host " >> Default path [$($private:rawConfig.old_default_environments_path)] changed to [$path]"
 	} else {
 		Write-Error " <!> The provided path is invalid or doesn't exist!"
-		return
 	}
 }
 
@@ -39,7 +38,7 @@ function cfg_Uninstall {
 	} while ($private:inpFlag)
 	switch -Regex ($private:deleteFlag) {
 		('^y$') {
-			Remove-Item -Recurse $instPath*
+			Remove-Item -Recurse -Force $instPath
 			Remove_From_PATH -instPath $script:installationPath
 		}
 		('^n$') {

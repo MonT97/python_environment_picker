@@ -25,10 +25,10 @@ function script:Initiate_Variables {
     [string]$script:mainScriptName = "penv.ps1"
     [string]$script:backupFileName = ".PATH_back_up.txt"
     [string]$script:activeDirectory = $PWD.Path
-    [string]$script:toolPath = Join-Path $script:activeDirectory $script:toolDirectory
-    [string]$script:backUpFilePath = Join-Path $script:activeDirectory $script:backupFileName
-    [string]$script:installationPath = Join-Path $env:LOCALAPPDATA $script:installationDirectory
-    [string]$script:mainScriptPath = Join-Path $script:installationPath $script:mainScriptName
+    [string]$script:toolPath = $(Join-Path $script:activeDirectory $script:toolDirectory)
+    [string]$script:backUpFilePath = $(Join-Path $script:activeDirectory $script:backupFileName)
+    [string]$script:installationPath = $(Join-Path $env:LOCALAPPDATA $script:installationDirectory)
+    [string]$script:mainScriptPath = $(Join-Path $script:installationPath $script:mainScriptName)
 }
 
 function script:Validate_Installation {
@@ -66,12 +66,12 @@ function script:Install_Tool {
     New-Item -ItemType directory $instPath -Force | Out-Null
     Get-ChildItem $script:toolPath -Filter *.ps1 | Copy-Item -Destination $instPath
     Create_Config
-    $local:addedToPATH = {param($p) [System.Environment]::GetEnvironmentVariable('path', 'user') -like "*$instPath*"}
-    if (!(&$local:addedToPATH)) {
+    $local:addedToPATH = $([System.Environment]::GetEnvironmentVariable('path', 'user') -like "*$instPath*")
+    if (!($local:addedToPATH)) {
         Add_To_PATH -instPath $instPath -backUpPath $script:backUpFilePath
     }
     Write-Host " > Tool installed ---> [$(Test-Path $instPath)].
- > Added to PATH ----> [$(&$local:addedToPATH)]"
+ > Added to PATH ----> [$local:addedToPATH]"
     Get-ChildItem $instPath
     Write-Host "`n > Type [penv] in any terminal session to run the tool"
     Write-Output "`n|==--==--==--==--==--==--==--==--<>--==--==--==--==--==--==--==--==|"
@@ -85,7 +85,7 @@ function script:Add_To_PATH {
         [string]$backUpPath
     )
     $private:oldPATH = [System.Environment]::GetEnvironmentVariable('path', 'user')
-    $private:newPATH = $private:oldPATH + ";$instPath"
+    $private:newPATH = $private:oldPATH.TrimEnd(";") + ";$instPath"
     New-Item -ItemType file $backUpPath -Force | Out-Null
     Write-Output $private:oldPATH > $backUpPath
     [System.Environment]::SetEnvironmentVariable('path', $private:newPATH, 'user')
@@ -105,14 +105,15 @@ function script:Look_For_Config_File {
 	[bool]$private:configFileNotFound = !(Test-Path $path)
 	if ($private:configFileNotFound) {
 		#! The used shouldn't know about the internal workings, so no "config file not found" massaga
-		Write-Host "`n > No default envronments path is provided"
-		$private:environmentPath = Read-Host " !> Provide The evnironments path:`n >"
-		if (Test-Path $private:environmentPath) {
-			Create_Config_File -envsPath $private:environmentPath -path $path
-            return
-		}
-		Write-Host " <!> Invalid path!"
-		Look_For_Config_File -path $path
+		Write-Host "`n > No default environments path is provided"
+        do {
+            $private:environmentPath = Read-Host " !> Provide The environments path:`n >"
+            [bool]$private:validPath = Test-Path $private:environmentPath
+            if (!($private:validPath)) {
+                Write-Host " <!> Invalid path!"
+            }
+        } while (!($private:validPath))
+        Create_Config_File -envsPath $private:environmentPath -path $path
 	}
 }
 
