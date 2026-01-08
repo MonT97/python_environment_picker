@@ -1,6 +1,6 @@
 function script:utl_Validate_Py_Installation {
     try {
-        python -V 2>&1
+        $null = python -V 2>&1
         utl_Throw_Error
     } catch {
         Write-Error "`n <!> Python is not installed, rendering the tool useless for you, install python from [www.python.org].`n   > Remember to check the add to PATH box during the setup prcess"
