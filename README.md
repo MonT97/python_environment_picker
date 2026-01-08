@@ -12,7 +12,7 @@ Extract the **[tool]** folder from the zip file then double-click/launch the **[
 The files will self delete after installation, if you need to reinstall, extract again.
 
 ## Download instruction
-Download the **[penv.zip](https://github.com/MonT97/python_environment_picker/releases/tag/stable )** from the **releases** section.
+Download the **[penv.zip](https://github.com/MonT97/python_environment_picker/releases/tag/v0.5.5)** from the **releases** section.
 
 ## Installation
 Extract the zip file, click/launch the **[install.bat]** file, then follow the on-screen dialogue.
