@@ -41,13 +41,13 @@ function script:Initiate_Variables {
 	[bool]$script:isEnvironmentProvided = (
 		(Test-Path $script:newEnvironmentPath) -and ([bool]$script:envName)
 		)
-	function script:Validata_Initial_Variables {
-		if (!(Test-Path $script:defaultPath)) {
-			Write-Host " <!> The specified path doesn't exist, provide another one"
-			utl_Quit -path $script:activeDirectory
-		}
+}
+
+function script:Validate_Default_Path {
+	if (!(Test-Path $script:defaultPath)) {
+		Write-Host " <!> The specified path doesn't exist, provide another one"
+		utl_Quit -path $script:activeDirectory
 	}
-	Validata_Initial_Variables
 }
 	
 function script:Parse_Greet {
@@ -347,6 +347,7 @@ function script:Handle_Main_Input{
 	Initiate_Variables
 	switch ($mainInput) {
 		('default') {
+			Validate_Default_Path
 			Main
 		}
 		('config') {
