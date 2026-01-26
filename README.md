@@ -2,7 +2,7 @@
 
 Handling multiple python projects in your system can be tedious; this project seeks to simplify this by providing the ability to create, delete, activate environments and some more, a very basic project.
 
-## Assumbtions
+## Assumptions
 The tool makes conciderable assumptions about the use case, mainly, it assumes that the user **have a main directory that houses multiple environments**, in addition to:
 - Windows OS.
 - You have python installed and added to PATH.
